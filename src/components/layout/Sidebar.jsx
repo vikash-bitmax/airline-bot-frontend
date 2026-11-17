@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  LayoutDashboard,
+  Radio,
   Users,
   Compass,
   PlayCircle,
@@ -9,12 +9,11 @@ import {
   BarChart3,
   Settings,
   Plane,
-  Radio,
   Send,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { path: '/', label: 'Overview', icon: LayoutDashboard },
+  { path: '/', label: 'Monitoring', icon: Radio },
   { path: '/simulations', label: 'Simulations', icon: PlayCircle },
   { path: '/conversations', label: 'Live Conversations', icon: MessagesSquare },
   { path: '/personas', label: 'Persona Library', icon: Users },
@@ -69,13 +68,15 @@ export const Sidebar = ({ onOpenQueryModal }) => {
                 key={item.path}
                 to={item.path}
                 end={item.path === '/'}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 text-xs font-semibold rounded-lg transition-colors mono-font ${
-                    isActive
+                className={({ isActive }) => {
+                  const isCurrentActive =
+                    isActive || (item.path === '/' && (window.location.pathname === '/' || window.location.pathname === '/monitoring'));
+                  return `flex items-center gap-3 px-3 py-2.5 text-xs font-semibold rounded-lg transition-colors mono-font ${
+                    isCurrentActive
                       ? 'bg-[var(--surface-input-active)] text-[var(--accent-primary)] border-l-4 border-[var(--accent-primary)] shadow-2xs'
                       : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-ticket-elevated)]'
-                  }`
-                }
+                  }`;
+                }}
               >
                 <Icon className="w-4 h-4 flex-shrink-0" />
                 <span>{item.label}</span>

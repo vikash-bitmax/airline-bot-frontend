@@ -5,6 +5,7 @@ import AppLayout from '../components/layout/AppLayout.jsx';
 import ProtectedRoute from '../components/layout/ProtectedRoute.jsx';
 
 import LoginPage from '../features/auth/LoginPage.jsx';
+import MonitoringPage from '../features/monitoring/MonitoringPage.jsx';
 import DashboardPage from '../features/dashboard/DashboardPage.jsx';
 
 import PersonaListPage from '../features/personas/PersonaListPage.jsx';
@@ -38,6 +39,14 @@ export const router = createBrowserRouter([
         children: [
           {
             path: '/',
+            element: <MonitoringPage />,
+          },
+          {
+            path: '/monitoring',
+            element: <MonitoringPage />,
+          },
+          {
+            path: '/overview',
             element: <DashboardPage />,
           },
           {
