@@ -1,111 +1,90 @@
+@import "tailwindcss";
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  color-scheme: light;
+  /* Airmail Boarding Pass Theme - Matching CRM Frontend */
+  --bg-canvas: #cad6d6;
+  --bg-dot: #b5c4c4;
+  --surface-ticket: #fbf8ee;
+  --surface-ticket-elevated: #f5f0e1;
+  --surface-input: #ffffff;
+  --surface-input-active: #edf4fe;
+  --border-subtle: #e6e0d0;
+  --border-active: #b93838;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Brand Accents */
+  --accent-primary: #b93838;
+  --accent-primary-hover: #a12e2a;
+  --airmail-red: #b93838;
+  --airmail-blue: #2563eb;
+  --route-navy: #1e293b;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Status Colors */
+  --status-operational: #15803d;
+  --status-operational-bg: #dcfce7;
+  --status-warning: #b45309;
+  --status-critical: #b91c1c;
+  --status-info: #1d4ed8;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  /* Typography */
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --text-dim: #94a3b8;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-canvas: #070c16;
+  --bg-dot: rgba(255, 255, 255, 0.08);
+  --surface-ticket: #0c1524;
+  --surface-ticket-elevated: #111d31;
+  --surface-input: #09101d;
+  --surface-input-active: #132238;
+  --border-subtle: rgba(255, 255, 255, 0.12);
+  --border-active: #e11d48;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+  --accent-primary: #e11d48;
+  --accent-primary-hover: #c02636;
+  --airmail-red: #e11d48;
+  --airmail-blue: #38bdf8;
+  --route-navy: #f8fafc;
+
+  --status-operational: #10b981;
+  --status-operational-bg: rgba(16, 185, 129, 0.15);
+  --status-warning: #f59e0b;
+  --status-critical: #ef4444;
+  --status-info: #38bdf8;
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
 }
 
 body {
-  margin: 0;
+  font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-canvas);
+  background-image: radial-gradient(var(--bg-dot) 1px, transparent 1px);
+  background-size: 16px 16px;
+  color: var(--text-main);
+  min-height: 100vh;
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+.mono-font {
+  font-family: 'IBM Plex Mono', 'JetBrains Mono', 'Roboto Mono', Consolas, monospace;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+/* Airmail Chevron Stripe Border */
+.airmail-stripe-top {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--airmail-red) 0px,
+    var(--airmail-red) 12px,
+    transparent 12px,
+    transparent 16px,
+    var(--airmail-blue) 16px,
+    var(--airmail-blue) 28px,
+    transparent 28px,
+    transparent 32px
+  );
+  height: 4px;
 }
