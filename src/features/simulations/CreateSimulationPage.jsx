@@ -60,7 +60,7 @@ export const CreateSimulationPage = () => {
         totalCustomers: Number(totalCustomers),
         concurrency: Number(concurrency),
         maxTurnsPerConversation: Number(maxTurns),
-        randomSeed,
+        randomSeed: (randomSeed && randomSeed.trim()) ? randomSeed.trim() : `seed-${Date.now()}`,
       }).unwrap();
 
       const runId = res?.data?.runId;
