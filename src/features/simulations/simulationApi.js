@@ -61,6 +61,17 @@ export const simulationApi = baseApi.injectEndpoints({
         { type: 'Simulation', id: 'LIST' },
       ],
     }),
+    deleteSimulation: builder.mutation({
+      query: (runId) => ({
+        url: `/simulations/${runId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, runId) => [
+        { type: 'Simulation', id: runId },
+        { type: 'Simulation', id: 'LIST' },
+        { type: 'Conversation', id: 'LIST' },
+      ],
+    }),
   }),
 });
 
@@ -72,4 +83,5 @@ export const {
   usePauseSimulationMutation,
   useResumeSimulationMutation,
   useCancelSimulationMutation,
+  useDeleteSimulationMutation,
 } = simulationApi;

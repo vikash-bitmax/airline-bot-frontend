@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, PlayCircle, PauseCircle, Play, XCircle, Search, RefreshCw, ChevronRight } from 'lucide-react';
+import { Plus, PlayCircle, PauseCircle, Play, XCircle, Search, RefreshCw, ChevronRight, Trash2 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import SearchInput from '../../components/common/SearchInput.jsx';
 import FilterDropdown from '../../components/common/FilterDropdown.jsx';
@@ -8,18 +8,22 @@ import StatusBadge from '../../components/common/StatusBadge.jsx';
 import LoadingState from '../../components/common/LoadingState.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
 import EmptyState from '../../components/common/EmptyState.jsx';
+import ConfirmDialog from '../../components/common/ConfirmDialog.jsx';
 import {
   useGetSimulationsQuery,
   useStartSimulationMutation,
   usePauseSimulationMutation,
   useResumeSimulationMutation,
   useCancelSimulationMutation,
+  useDeleteSimulationMutation,
 } from './simulationApi.js';
+import socketService from '../../services/socket.js';
 
 export const SimulationListPage = () => {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [simulationToDelete, setSimulationToDelete] = useState(null);
 
   const { data, isLoading, error, refetch } = useGetSimulationsQuery({
     status: status || undefined,
@@ -29,8 +33,36 @@ export const SimulationListPage = () => {
   const [pauseSim] = usePauseSimulationMutation();
   const [resumeSim] = useResumeSimulationMutation();
   const [cancelSim] = useCancelSimulationMutation();
+  const [deleteSim, { isLoading: isDeleting }] = useDeleteSimulationMutation();
 
   const simulations = data?.data || [];
+
+  useEffect(() => {
+    const unsubStarted = socketService.on('simulation:started', () => refetch());
+    const unsubPaused = socketService.on('simulation:paused', () => refetch());
+    const unsubResumed = socketService.on('simulation:resumed', () => refetch());
+    const unsubCancelled = socketService.on('simulation:cancelled', () => refetch());
+    const unsubDeleted = socketService.on('simulation:deleted', () => refetch());
+
+    return () => {
+      unsubStarted && unsubStarted();
+      unsubPaused && unsubPaused();
+      unsubResumed && unsubResumed();
+      unsubCancelled && unsubCancelled();
+      unsubDeleted && unsubDeleted();
+    };
+  }, [refetch]);
+
+  const handleDeleteConfirm = async () => {
+    if (!simulationToDelete) return;
+    try {
+      await deleteSim(simulationToDelete).unwrap();
+      setSimulationToDelete(null);
+      refetch();
+    } catch (err) {
+      console.error('Failed to delete simulation:', err);
+    }
+  };
 
   const statuses = [
     { value: 'RUNNING', label: 'Running / Active' },
@@ -58,13 +90,23 @@ export const SimulationListPage = () => {
         subtitle="Manage and monitor autonomous batches testing CRM queues"
         badge={`${simulations.length} RUNS`}
         actions={
-          <button
-            onClick={() => navigate('/simulations/create')}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white shadow-xs transition-colors mono-font cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Launch New Simulation
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetch()}
+              title="Refresh Simulations"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-ticket)] hover:bg-[var(--surface-ticket-elevated)] text-[var(--text-main)] transition-colors mono-font cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+            <button
+              onClick={() => navigate('/simulations/create')}
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-lg bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white shadow-xs transition-colors mono-font cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Launch New Simulation
+            </button>
+          </div>
         }
       />
 
@@ -183,6 +225,13 @@ export const SimulationListPage = () => {
                         >
                           Inspect →
                         </button>
+                        <button
+                          onClick={() => setSimulationToDelete(sim.runId)}
+                          title="Delete Simulation Run"
+                          className="p-1.5 rounded text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -192,6 +241,17 @@ export const SimulationListPage = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={Boolean(simulationToDelete)}
+        title="Delete Simulation Run"
+        message={`Are you sure you want to permanently delete simulation "${simulationToDelete}" and all associated conversations, messages, and telemetry data?`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Simulation'}
+        isDanger={true}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setSimulationToDelete(null)}
+      />
     </div>
   );
 };

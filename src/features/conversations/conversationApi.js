@@ -44,6 +44,17 @@ export const conversationApi = baseApi.injectEndpoints({
         { type: 'Conversation', id: 'LIST' },
       ],
     }),
+    deleteConversation: builder.mutation({
+      query: (conversationId) => ({
+        url: `/conversations/${conversationId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, id) => [
+        { type: 'Conversation', id },
+        { type: 'Conversation', id: 'LIST' },
+        { type: 'Simulation', id: 'LIST' },
+      ],
+    }),
     raiseSupportQuery: builder.mutation({
       query: (body) => ({
         url: '/conversations/raise-query',
@@ -65,5 +76,6 @@ export const {
   useGetConversationEventsQuery,
   useGetConversationReplayQuery,
   useStopConversationMutation,
+  useDeleteConversationMutation,
   useRaiseSupportQueryMutation,
 } = conversationApi;

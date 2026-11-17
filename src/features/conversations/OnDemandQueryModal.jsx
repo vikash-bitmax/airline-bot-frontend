@@ -88,7 +88,7 @@ export const OnDemandQueryModal = ({ isOpen, onClose }) => {
                 Raise Query to Airline CRM Support
               </h3>
               <p className="text-xs text-[var(--text-muted)]">
-                Direct Bot-to-CRM Support API Trigger (`POST /api/chat/sessions`)
+                Direct Bot-to-CRM Support API Trigger (`POST /api/v1/chat/sessions`)
               </p>
             </div>
           </div>
@@ -111,7 +111,7 @@ export const OnDemandQueryModal = ({ isOpen, onClose }) => {
                 Inquiry Dispatched to CRM!
               </h4>
               <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto">
-                Customer query was submitted to the CRM backend on <code className="bg-[var(--surface-ticket-elevated)] px-1 py-0.5 rounded">http://localhost:5000/api/chat/sessions</code>. The simulated passenger is now listening on Socket.IO for the agent.
+                Customer query was submitted to the CRM backend on <code className="bg-[var(--surface-ticket-elevated)] px-1 py-0.5 rounded">http://localhost:5000/api/v1/chat/sessions</code>. The simulated passenger is now listening on Socket.IO for the agent.
               </p>
 
               <div className="p-4 rounded-lg bg-[var(--surface-ticket-elevated)] border border-[var(--border-subtle)] text-left mono-font text-xs space-y-1.5 max-w-md mx-auto">

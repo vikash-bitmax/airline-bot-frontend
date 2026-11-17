@@ -33,11 +33,12 @@ export const PersonaListPage = () => {
   ];
 
   const filtered = personas.filter((p) => {
+    const q = search.toLowerCase();
     const matchSearch =
       !search ||
-      p.name?.toLowerCase().includes(search.toLowerCase()) ||
-      p.personaId?.toLowerCase().includes(search.toLowerCase()) ||
-      p.archetype?.toLowerCase().includes(search.toLowerCase());
+      Boolean(p.name?.toLowerCase()?.includes(q)) ||
+      Boolean(p.personaId?.toLowerCase()?.includes(q)) ||
+      Boolean(p.archetype?.toLowerCase()?.includes(q));
 
     const matchCategory = !category || p.category === category || p.archetype === category;
     return matchSearch && matchCategory;

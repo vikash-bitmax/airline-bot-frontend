@@ -12,6 +12,11 @@ const STATUS_CONFIGS = {
   CANCELLED: { bg: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700', dot: 'bg-slate-400', label: 'CANCELLED' },
   ABANDONED: { bg: 'bg-orange-50 text-orange-700 border-orange-300 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800', dot: 'bg-orange-500', label: 'ABANDONED' },
   NEW: { bg: 'bg-cyan-50 text-cyan-700 border-cyan-300 dark:bg-cyan-950/40 dark:text-cyan-400 dark:border-cyan-800', dot: 'bg-cyan-500', label: 'NEW INQUIRY' },
+  WAITING: { bg: 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800', dot: 'bg-amber-500', label: 'WAITING IN QUEUE' },
+  ESCALATED: { bg: 'bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800', dot: 'bg-purple-500', label: 'ESCALATED (TL/SUP)' },
+  TRANSFERRED: { bg: 'bg-indigo-50 text-indigo-700 border-indigo-300 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-800', dot: 'bg-indigo-500', label: 'TRANSFERRED' },
+  RESOLVED: { bg: 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800', dot: 'bg-emerald-500', label: 'RESOLVED' },
+  CLOSED: { bg: 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700', dot: 'bg-slate-400', label: 'CLOSED' },
 };
 
 export const StatusBadge = ({ status = 'PENDING', className = '' }) => {

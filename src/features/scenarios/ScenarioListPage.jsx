@@ -28,11 +28,12 @@ export const ScenarioListPage = () => {
   ];
 
   const filtered = scenarios.filter((s) => {
+    const q = search.toLowerCase();
     const matchSearch =
       !search ||
-      s.name?.toLowerCase().includes(search.toLowerCase()) ||
-      s.scenarioId?.toLowerCase().includes(search.toLowerCase()) ||
-      s.category?.toLowerCase().includes(search.toLowerCase());
+      Boolean(s.name?.toLowerCase()?.includes(q)) ||
+      Boolean(s.scenarioId?.toLowerCase()?.includes(q)) ||
+      Boolean(s.category?.toLowerCase()?.includes(q));
 
     const matchDiff = !difficulty || s.difficulty === difficulty;
     return matchSearch && matchDiff;

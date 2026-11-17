@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, SkipForward, SkipBack, RefreshCw, Radio, Sparkles } from 'lucide-react';
+import { ArrowLeft, Play, Pause, SkipForward, SkipBack, RefreshCw, Radio, Sparkles, Trash2 } from 'lucide-react';
 
 import ChatWindow from '../../components/conversation/ChatWindow.jsx';
 import CustomerProfilePanel from '../../components/conversation/CustomerProfilePanel.jsx';
 import EventTimeline from '../../components/conversation/EventTimeline.jsx';
 import LoadingState from '../../components/common/LoadingState.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
+import ConfirmDialog from '../../components/common/ConfirmDialog.jsx';
 
 import {
   useGetConversationDetailsQuery,
   useStopConversationMutation,
+  useDeleteConversationMutation,
 } from './conversationApi.js';
 import socketService from '../../services/socket.js';
 
@@ -20,6 +22,8 @@ export const ConversationDetailsPage = () => {
 
   const { data, isLoading, error, refetch } = useGetConversationDetailsQuery(conversationId);
   const [stopConv, { isLoading: isStopping }] = useStopConversationMutation();
+  const [deleteConv, { isLoading: isDeleting }] = useDeleteConversationMutation();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const conversation = data?.data?.conversation;
   const initialMessages = data?.data?.messages || [];
@@ -112,6 +116,15 @@ export const ConversationDetailsPage = () => {
     }
   };
 
+  const handleDeleteConfirm = async () => {
+    try {
+      await deleteConv(conversationId).unwrap();
+      navigate('/conversations');
+    } catch (err) {
+      console.error('Delete conversation error:', err);
+    }
+  };
+
   const persona = conversation.persona || conversation.personaSnapshot;
   const scenario = conversation.scenario || conversation.scenarioSnapshot;
   const fixture = conversation.customerFixture || {};
@@ -146,6 +159,14 @@ export const ConversationDetailsPage = () => {
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Sync</span>
+          </button>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 dark:bg-red-950/40 dark:border-red-800 dark:hover:bg-red-900/50 shadow-2xs mono-font text-xs flex items-center gap-1 cursor-pointer"
+            title="Delete this conversation"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Delete</span>
           </button>
         </div>
       </div>
@@ -203,6 +224,17 @@ export const ConversationDetailsPage = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={showDeleteModal}
+        title="Delete Conversation"
+        message={`Are you sure you want to permanently delete this conversation (${conversationId}) and all of its transcript messages?`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Conversation'}
+        isDanger={true}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteModal(false)}
+      />
     </div>
   );
 };

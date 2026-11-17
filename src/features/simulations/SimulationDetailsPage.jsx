@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -11,29 +11,34 @@ import {
   Compass,
   Clock,
   ArrowRight,
+  Trash2,
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import StatusBadge from '../../components/common/StatusBadge.jsx';
 import LoadingState from '../../components/common/LoadingState.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
+import ConfirmDialog from '../../components/common/ConfirmDialog.jsx';
 import {
   useGetSimulationByIdQuery,
   useStartSimulationMutation,
   usePauseSimulationMutation,
   useResumeSimulationMutation,
   useCancelSimulationMutation,
+  useDeleteSimulationMutation,
 } from './simulationApi.js';
 import socketService from '../../services/socket.js';
 
 export const SimulationDetailsPage = () => {
   const { runId } = useParams();
   const navigate = useNavigate();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data, isLoading, error, refetch } = useGetSimulationByIdQuery(runId);
   const [startSim] = useStartSimulationMutation();
   const [pauseSim] = usePauseSimulationMutation();
   const [resumeSim] = useResumeSimulationMutation();
   const [cancelSim] = useCancelSimulationMutation();
+  const [deleteSim, { isLoading: isDeleting }] = useDeleteSimulationMutation();
 
   const run = data?.data?.run;
   const conversations = data?.data?.conversations || [];
@@ -66,6 +71,15 @@ export const SimulationDetailsPage = () => {
 
   const activeCount = conversations.filter((c) => c.status === 'ACTIVE').length;
   const concludedCount = conversations.filter((c) => c.status === 'CONCLUDED' || c.status === 'COMPLETED').length;
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await deleteSim(runId).unwrap();
+      navigate('/simulations');
+    } catch (err) {
+      console.error('Failed to delete simulation:', err);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -111,11 +125,18 @@ export const SimulationDetailsPage = () => {
             {(run.status === 'RUNNING' || run.status === 'PAUSED') && (
               <button
                 onClick={() => cancelSim(run.runId)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-xs mono-font cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-xs mono-font cursor-pointer"
               >
                 <XCircle className="w-4 h-4" /> Cancel Run
               </button>
             )}
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              title="Delete Simulation"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-xs mono-font cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
           </div>
         }
       />
@@ -219,6 +240,16 @@ export const SimulationDetailsPage = () => {
           </div>
         )}
       </div>
+      {/* Delete Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        title="Delete Simulation Run"
+        message={`Are you sure you want to permanently delete simulation "${runId}" and all its active conversations and message transcripts?`}
+        confirmLabel={isDeleting ? 'Deleting...' : 'Delete Simulation'}
+        isDanger={true}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
     </div>
   );
 };
