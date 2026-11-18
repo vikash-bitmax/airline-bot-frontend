@@ -6,6 +6,7 @@ import {
   PauseCircle,
   Play,
   XCircle,
+  StopCircle,
   MessagesSquare,
   Users,
   Compass,
@@ -125,9 +126,9 @@ export const SimulationDetailsPage = () => {
             {(run.status === 'RUNNING' || run.status === 'PAUSED') && (
               <button
                 onClick={() => cancelSim(run.runId)}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-xs mono-font cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-xs mono-font cursor-pointer"
               >
-                <XCircle className="w-4 h-4" /> Cancel Run
+                <StopCircle className="w-4 h-4" /> Stop Simulation Run
               </button>
             )}
             <button

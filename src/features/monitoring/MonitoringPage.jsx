@@ -34,6 +34,7 @@ import {
   useDeleteConversationMutation,
   useRaiseSupportQueryMutation,
 } from '../conversations/conversationApi.js';
+import { useCancelSimulationMutation } from '../simulations/simulationApi.js';
 import { useGetPersonasQuery } from '../personas/personaApi.js';
 import { useGetScenariosQuery } from '../scenarios/scenarioApi.js';
 import StatusBadge from '../../components/common/StatusBadge.jsx';
@@ -65,14 +66,24 @@ export const MonitoringPage = () => {
   const [selectedPersonaId, setSelectedPersonaId] = useState('P001');
   const [selectedCategory, setSelectedCategory] = useState('FLIGHT_DISRUPTION');
   const [priority, setPriority] = useState('ALL');
-  const [minWaitSec, setMinWaitSec] = useState(2);
-  const [maxWaitSec, setMaxWaitSec] = useState(5);
+  const [minWaitSec, setMinWaitSec] = useState(120); // Realistic 2 - 2:30 min AHT pacing
+  const [maxWaitSec, setMaxWaitSec] = useState(150);
   const [escalationMode, setEscalationMode] = useState('Auto'); // 'Auto' | 'Yes' | 'No'
-  const [idleStopMins, setIdleStopMins] = useState(7);
+  const [idleStopMins, setIdleStopMins] = useState(4); // 4-minute AHT silence threshold
   const [pilotMode, setPilotMode] = useState('MANUAL'); // 'MANUAL' | 'AUTO-PILOT'
+  const [autoPilotIntervalSec, setAutoPilotIntervalSec] = useState(30);
+  const [isAutoPilotRunning, setIsAutoPilotRunning] = useState(false);
+  const [autoPilotRunId, setAutoPilotRunId] = useState(null);
+  const [autoPilotCount, setAutoPilotCount] = useState(0);
+  const [countdown, setCountdown] = useState(30);
   const [deployCount, setDeployCount] = useState(1);
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployError, setDeployError] = useState('');
+
+  // Auto-Pilot timer refs
+  const autoPilotTimerRef = useRef(null);
+  const countdownTimerRef = useRef(null);
+  const autoPilotRunningRef = useRef(false);
 
   // ── State for Simulator Sessions & Conversation Monitor ──
   const [selectedConversationId, setSelectedConversationId] = useState(null);
@@ -85,6 +96,7 @@ export const MonitoringPage = () => {
   const [showStopAllConfirm, setShowStopAllConfirm] = useState(false);
   const [conversationToHalt, setConversationToHalt] = useState(null);
   const [conversationToDelete, setConversationToDelete] = useState(null);
+  const [simulationToCancel, setSimulationToCancel] = useState(null);
 
   // Queries
   const { data: personaData } = useGetPersonasQuery({ limit: 100 });
@@ -104,6 +116,7 @@ export const MonitoringPage = () => {
   const [stopConv, { isLoading: isStoppingSingle }] = useStopConversationMutation();
   const [stopAll, { isLoading: isStoppingAll }] = useStopAllConversationsMutation();
   const [deleteConv, { isLoading: isDeletingConv }] = useDeleteConversationMutation();
+  const [cancelSim, { isLoading: isCancellingSim }] = useCancelSimulationMutation();
 
   // Selected Conversation Details Query
   const {
@@ -206,51 +219,161 @@ export const MonitoringPage = () => {
     ).length;
   }, [conversations]);
 
-  // ── Deploy Simulator Handler ──
+  // Auto-Pilot timer cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (autoPilotTimerRef.current) clearInterval(autoPilotTimerRef.current);
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    };
+  }, []);
+
+  // ── Single Query Dispatch Helper ──
+  const dispatchSingleQuery = async (customRunId = null) => {
+    // Pick persona
+    const persona =
+      selectedPersonaId === 'RANDOM'
+        ? personas[Math.floor(Math.random() * personas.length)]
+        : personas.find((p) => p.personaId === selectedPersonaId) || personas[0];
+
+    // Pick scenario
+    const scenario =
+      selectedCategory === 'RANDOM'
+        ? scenarios[Math.floor(Math.random() * scenarios.length)]
+        : scenarios.find((s) => s.category?.toUpperCase() === selectedCategory?.toUpperCase()) || scenarios[0];
+
+    const pId = persona?.personaId || 'P001';
+    const sId = scenario?.scenarioId || 'S001';
+    const randomPnr = `SW${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const res = await raiseQuery({
+      runId: customRunId,
+      personaId: pId,
+      scenarioId: sId,
+      customerName: persona?.name ? `${persona.name} (${customRunId ? 'AutoPilot' : 'Sim'})` : 'Simulated Passenger',
+      passengerEmail: `passenger.${Math.random().toString(36).substring(2, 7)}@example.test`,
+      pnr: randomPnr,
+      flightNumber: `SW-${Math.floor(100 + Math.random() * 899)}`,
+      category: selectedCategory === 'RANDOM' ? 'FLIGHT_DISRUPTION' : selectedCategory,
+      minWaitSec,
+      maxWaitSec,
+      maxAhtMins: 4,
+      idleStopMins,
+      pilotMode,
+      useMockCrm: false,
+    }).unwrap();
+
+    if (res?.data?.conversation?.conversationId) {
+      setSelectedConversationId(res.data.conversation.conversationId);
+    }
+    return res;
+  };
+
+  // ── Auto-Pilot Start & Stop Handlers ──
+  const handleStartAutoPilot = async () => {
+    setDeployError('');
+    setIsDeploying(true);
+    const newRunId = `RUN-AUTOPILOT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    setAutoPilotRunId(newRunId);
+    setIsAutoPilotRunning(true);
+    autoPilotRunningRef.current = true;
+    setAutoPilotCount(1);
+    setCountdown(autoPilotIntervalSec);
+
+    try {
+      // 1. Dispatch first query immediately
+      await dispatchSingleQuery(newRunId);
+      refetchConversations();
+    } catch (err) {
+      console.error('Auto-Pilot initial dispatch failed:', err);
+      setDeployError(err?.data?.message || err?.message || 'Failed to start Auto-Pilot simulation');
+      setIsAutoPilotRunning(false);
+      autoPilotRunningRef.current = false;
+      setIsDeploying(false);
+      return;
+    } finally {
+      setIsDeploying(false);
+    }
+
+    // 2. Countdown ticker (every 1s)
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          return autoPilotIntervalSec;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    // 3. Recurring dispatch on the chosen timer interval
+    if (autoPilotTimerRef.current) clearInterval(autoPilotTimerRef.current);
+    autoPilotTimerRef.current = setInterval(async () => {
+      if (!autoPilotRunningRef.current) return;
+      try {
+        await dispatchSingleQuery(newRunId);
+        setAutoPilotCount((c) => c + 1);
+        refetchConversations();
+      } catch (err) {
+        console.error('Auto-Pilot recurring dispatch error:', err);
+      }
+    }, autoPilotIntervalSec * 1000);
+  };
+
+  const handleStopAutoPilot = async () => {
+    autoPilotRunningRef.current = false;
+    setIsAutoPilotRunning(false);
+    if (autoPilotTimerRef.current) clearInterval(autoPilotTimerRef.current);
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+
+    if (autoPilotRunId) {
+      try {
+        await cancelSim(autoPilotRunId).unwrap();
+      } catch (err) {
+        console.error('Failed to cancel Auto-Pilot simulation run on backend:', err);
+      }
+    }
+    refetchConversations();
+  };
+
+  // ── Deploy Simulator Handler (Manual or Auto-Pilot) ──
   const handleDeploySimulator = async () => {
+    if (pilotMode === 'AUTO-PILOT') {
+      if (isAutoPilotRunning) {
+        await handleStopAutoPilot();
+      } else {
+        await handleStartAutoPilot();
+      }
+      return;
+    }
+
     setDeployError('');
     setIsDeploying(true);
 
     try {
-      // Pick persona
-      const persona =
-        selectedPersonaId === 'RANDOM'
-          ? personas[Math.floor(Math.random() * personas.length)]
-          : personas.find((p) => p.personaId === selectedPersonaId) || personas[0];
-
-      // Pick scenario
-      const scenario =
-        selectedCategory === 'RANDOM'
-          ? scenarios[Math.floor(Math.random() * scenarios.length)]
-          : scenarios.find((s) => s.category?.toUpperCase() === selectedCategory?.toUpperCase()) || scenarios[0];
-
-      const pId = persona?.personaId || 'P001';
-      const sId = scenario?.scenarioId || 'S001';
-
-      // Deploy batches based on count
       for (let i = 0; i < deployCount; i++) {
-        const randomPnr = `SW${Math.floor(1000 + Math.random() * 9000)}`;
-        const res = await raiseQuery({
-          personaId: pId,
-          scenarioId: sId,
-          customerName: persona?.name ? `${persona.name} (Sim)` : 'Simulated Passenger',
-          passengerEmail: `passenger.${Math.random().toString(36).substring(2, 7)}@example.test`,
-          pnr: randomPnr,
-          flightNumber: `SW-${Math.floor(100 + Math.random() * 899)}`,
-          category: selectedCategory === 'RANDOM' ? 'FLIGHT_DISRUPTION' : selectedCategory,
-          useMockCrm: false,
-        }).unwrap();
-
-        if (res?.data?.conversation?.conversationId) {
-          setSelectedConversationId(res.data.conversation.conversationId);
-        }
+        await dispatchSingleQuery();
       }
-
       refetchConversations();
     } catch (err) {
       setDeployError(err?.data?.message || err?.message || 'Failed to deploy simulator');
     } finally {
       setIsDeploying(false);
+    }
+  };
+
+  // ── Stop That Particular Simulation Run ──
+  const handleStopSimulationRun = async () => {
+    if (!simulationToCancel) return;
+    try {
+      await cancelSim(simulationToCancel).unwrap();
+      if (autoPilotRunId === simulationToCancel) {
+        handleStopAutoPilot();
+      }
+      setSimulationToCancel(null);
+      refetchConversations();
+      if (selectedConversationId) refetchSelectedConv();
+    } catch (err) {
+      console.error('Failed to stop simulation run:', err);
     }
   };
 
@@ -382,6 +505,40 @@ export const MonitoringPage = () => {
         </div>
       </div>
 
+      {/* ── AUTO-PILOT ACTIVE RUNNER BANNER ── */}
+      {isAutoPilotRunning && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3.5 rounded-xl bg-gradient-to-r from-red-950/90 via-slate-900 to-red-950/90 border border-red-500/50 shadow-lg text-white animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-red-600/30 border border-red-500/50 flex items-center justify-center">
+              <Radio className="w-4 h-4 text-red-400 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-red-400 mono-font">
+                  Auto-Pilot Pipeline Active
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-red-500/20 border border-red-500/40 text-red-200">
+                  {autoPilotRunId}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 mono-font mt-0.5">
+                Dispatched: <strong className="text-white">{autoPilotCount} query/queries</strong> • Next query in: <strong className="text-amber-300 font-bold">{countdown}s</strong> (Interval: {autoPilotIntervalSec}s) • Pacing: {minWaitSec}-{maxWaitSec}s
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleStopAutoPilot}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-md transition-colors mono-font cursor-pointer"
+            >
+              <StopCircle className="w-4 h-4" />
+              Stop Auto-Pilot Simulation
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── LAUNCH CONFIGURATION PANEL (Collapsible) ── */}
       <div className="rounded-xl bg-[var(--surface-ticket)] border border-[var(--border-subtle)] shadow-xs overflow-hidden">
         <button
@@ -394,7 +551,7 @@ export const MonitoringPage = () => {
               Launch Configuration
             </span>
             <span className="text-[10px] text-[var(--text-muted)] mono-font">
-              ({pilotMode} mode • {deployCount} session(s))
+              ({pilotMode} mode • {pilotMode === 'AUTO-PILOT' ? `Interval ${autoPilotIntervalSec}s` : `${deployCount} session(s)`} • AHT 2-2:30m)
             </span>
           </div>
           {configOpen ? <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />}
@@ -467,30 +624,52 @@ export const MonitoringPage = () => {
                 </select>
               </div>
 
-              {/* Wait Time (Sec) */}
+              {/* Wait Time (Sec) - AHT Benchmark 120-150s */}
               <div>
-                <label className="block text-[10px] uppercase font-bold text-[var(--text-muted)] mb-1">
-                  Wait Time (Sec)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] uppercase font-bold text-[var(--text-muted)]">
+                    Wait Time (Sec)
+                  </label>
+                  <span className="text-[9px] text-[var(--accent-primary)] font-bold">
+                    {minWaitSec >= 120 ? 'Realistic AHT' : 'Fast Mode'}
+                  </span>
+                </div>
                 <div className="flex items-center gap-1.5 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg px-2 py-1">
                   <Clock className="w-3.5 h-3.5 text-[var(--text-muted)]" />
                   <input
                     type="number"
                     min="1"
-                    max="60"
+                    max="600"
                     value={minWaitSec}
                     onChange={(e) => setMinWaitSec(Number(e.target.value))}
-                    className="w-10 text-center bg-transparent text-[var(--text-main)] text-xs"
+                    className="w-10 text-center bg-transparent text-[var(--text-main)] text-xs font-bold"
                   />
                   <span className="text-[var(--text-muted)]">-</span>
                   <input
                     type="number"
                     min="1"
-                    max="180"
+                    max="600"
                     value={maxWaitSec}
                     onChange={(e) => setMaxWaitSec(Number(e.target.value))}
-                    className="w-10 text-center bg-transparent text-[var(--text-main)] text-xs"
+                    className="w-10 text-center bg-transparent text-[var(--text-main)] text-xs font-bold"
                   />
+                </div>
+                {/* Presets */}
+                <div className="flex items-center gap-1 mt-1 text-[9px]">
+                  <button
+                    type="button"
+                    onClick={() => { setMinWaitSec(120); setMaxWaitSec(150); }}
+                    className="px-1.5 py-0.5 rounded bg-[var(--surface-ticket-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                  >
+                    2m–2:30m (AHT)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMinWaitSec(5); setMaxWaitSec(10); }}
+                    className="px-1.5 py-0.5 rounded bg-[var(--surface-ticket-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                  >
+                    5s–10s (Fast)
+                  </button>
                 </div>
               </div>
 
@@ -520,17 +699,18 @@ export const MonitoringPage = () => {
             {/* Sub-row Controls */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[var(--border-subtle)] text-xs mono-font">
               <div className="flex items-center gap-4 flex-wrap">
-                {/* Idle Stop */}
+                {/* Idle Stop (4 min threshold) */}
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-[var(--text-muted)] uppercase">Idle Stop (Mins):</span>
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase">AHT Ceiling (Mins):</span>
                   <input
                     type="number"
                     min="1"
                     max="60"
                     value={idleStopMins}
                     onChange={(e) => setIdleStopMins(Number(e.target.value))}
-                    className="w-12 px-1.5 py-1 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded text-center text-xs text-[var(--text-main)]"
+                    className="w-12 px-1.5 py-1 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded text-center text-xs text-[var(--text-main)] font-bold"
                   />
+                  <span className="text-[9px] text-[var(--text-dim)]">(Bot stops replying &gt;4m)</span>
                 </div>
 
                 {/* Pilot Mode Switcher */}
@@ -550,38 +730,85 @@ export const MonitoringPage = () => {
                   ))}
                 </div>
 
-                {/* Count Stepper */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-[var(--text-muted)] uppercase">Count:</span>
-                  <div className="flex items-center bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
-                    <button
-                      onClick={() => setDeployCount((c) => Math.max(1, c - 1))}
-                      className="px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <span className="px-2 font-bold text-xs text-[var(--text-main)]">{deployCount}</span>
-                    <button
-                      onClick={() => setDeployCount((c) => Math.min(10, c + 1))}
-                      className="px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-                    >
-                      +
-                    </button>
+                {/* If Auto-Pilot: Show Timer Interval Selector */}
+                {pilotMode === 'AUTO-PILOT' ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[var(--text-muted)] uppercase">Timer Interval (Sec):</span>
+                    <input
+                      type="number"
+                      min="5"
+                      max="3600"
+                      value={autoPilotIntervalSec}
+                      onChange={(e) => setAutoPilotIntervalSec(Math.max(5, Number(e.target.value)))}
+                      className="w-14 px-1.5 py-1 bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded text-center text-xs text-[var(--text-main)] font-bold"
+                    />
+                    <div className="flex items-center gap-1">
+                      {[15, 30, 60, 120].map((sec) => (
+                        <button
+                          key={sec}
+                          type="button"
+                          onClick={() => setAutoPilotIntervalSec(sec)}
+                          className={`px-1.5 py-0.5 text-[9px] rounded border cursor-pointer ${
+                            autoPilotIntervalSec === sec
+                              ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)]'
+                              : 'bg-[var(--surface-input)] text-[var(--text-muted)] border-[var(--border-subtle)] hover:text-[var(--text-main)]'
+                          }`}
+                        >
+                          {sec}s
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Count Stepper for Manual */
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-[var(--text-muted)] uppercase">Count:</span>
+                    <div className="flex items-center bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
+                      <button
+                        onClick={() => setDeployCount((c) => Math.max(1, c - 1))}
+                        className="px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <span className="px-2 font-bold text-xs text-[var(--text-main)]">{deployCount}</span>
+                      <button
+                        onClick={() => setDeployCount((c) => Math.min(10, c + 1))}
+                        className="px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Deploy Simulator CTA */}
+              {/* Deploy / Auto-Pilot CTA */}
               <button
                 onClick={handleDeploySimulator}
                 disabled={isDeploying}
-                className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white font-bold text-xs shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                className={`inline-flex items-center gap-2 px-5 py-2 rounded-lg font-bold text-xs shadow-sm transition-all cursor-pointer disabled:opacity-50 ${
+                  pilotMode === 'AUTO-PILOT' && isAutoPilotRunning
+                    ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                    : 'bg-[var(--accent-primary)] hover:bg-[var(--accent-primary-hover)] text-white'
+                }`}
               >
                 {isDeploying ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     Deploying Pipeline...
                   </>
+                ) : pilotMode === 'AUTO-PILOT' ? (
+                  isAutoPilotRunning ? (
+                    <>
+                      <StopCircle className="w-3.5 h-3.5" />
+                      Stop Auto-Pilot Simulation
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      Start Auto-Pilot ({autoPilotIntervalSec}s interval)
+                    </>
+                  )
                 ) : (
                   <>
                     <Play className="w-3.5 h-3.5 fill-current" />
@@ -692,6 +919,21 @@ export const MonitoringPage = () => {
               </div>
             </div>
           ) : null}
+
+          {/* AHT Stopping Criteria Alert Banner (4 min threshold) */}
+          {activeConversation && (activeConversation.status === 'ABANDONED' || activeConversation.endReason?.includes('AHT_TIMEOUT')) && (
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs mono-font flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>
+                  <strong>AHT 4-Minute Ceiling Enforced:</strong> Bot ceased replying because conversation handling time / silence reached 4 minutes. Conversation marked ABANDONED.
+                </span>
+              </div>
+              <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 uppercase whitespace-nowrap">
+                AHT LIMIT REACHED
+              </span>
+            </div>
+          )}
 
           {/* Main Chat Stream or Empty State */}
           <div ref={chatScrollRef} className="flex-1 p-4 overflow-y-auto space-y-3 bg-[var(--surface-ticket)]/60">
@@ -909,6 +1151,11 @@ export const MonitoringPage = () => {
                       <span className="px-1.5 py-0.5 rounded bg-[var(--surface-ticket-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)]">
                         💬 {turns}
                       </span>
+                      {(conv.status === 'ABANDONED' || conv.endReason?.includes('AHT_TIMEOUT')) && (
+                        <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-800 font-bold">
+                          ⏱️ AHT 4m Timeout
+                        </span>
+                      )}
                     </div>
 
                     {/* Footer: Timestamp and Stop action */}
@@ -919,17 +1166,33 @@ export const MonitoringPage = () => {
                           : '—'}
                       </span>
 
-                      {isActive && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConversationToHalt(conv.conversationId);
-                          }}
-                          className="px-2 py-0.5 text-[9px] font-bold rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-950/60 dark:text-red-400 border border-red-300 dark:border-red-800 transition-colors cursor-pointer"
-                        >
-                          STOP
-                        </button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {isActive && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConversationToHalt(conv.conversationId);
+                            }}
+                            title="Halt this conversation"
+                            className="px-2 py-0.5 text-[9px] font-bold rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-950/60 dark:text-red-400 border border-red-300 dark:border-red-800 transition-colors cursor-pointer"
+                          >
+                            STOP
+                          </button>
+                        )}
+                        {conv.simulationRun && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const rId = typeof conv.simulationRun === 'object' ? conv.simulationRun.runId : conv.simulationRun;
+                              setSimulationToCancel(rId);
+                            }}
+                            title="Halt this entire simulation run"
+                            className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-[var(--surface-ticket-elevated)] hover:bg-red-50 hover:text-red-600 text-[var(--text-muted)] border border-[var(--border-subtle)] transition-colors cursor-pointer"
+                          >
+                            Stop Run
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -979,6 +1242,16 @@ export const MonitoringPage = () => {
         isDanger={true}
         onConfirm={handleHaltSingle}
         onCancel={() => setConversationToHalt(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(simulationToCancel)}
+        title="Stop That Simulation Run"
+        message={`Are you sure you want to stop simulation run "${simulationToCancel}" and halt all of its active customer sessions?`}
+        confirmLabel={isCancellingSim ? 'Stopping Run...' : 'Stop Simulation Run'}
+        isDanger={true}
+        onConfirm={handleStopSimulationRun}
+        onCancel={() => setSimulationToCancel(null)}
       />
 
       <ConfirmDialog

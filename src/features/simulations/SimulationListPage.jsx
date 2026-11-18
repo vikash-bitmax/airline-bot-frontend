@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, PlayCircle, PauseCircle, Play, XCircle, Search, RefreshCw, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, PlayCircle, PauseCircle, Play, XCircle, StopCircle, Search, RefreshCw, ChevronRight, Trash2 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader.jsx';
 import SearchInput from '../../components/common/SearchInput.jsx';
 import FilterDropdown from '../../components/common/FilterDropdown.jsx';
@@ -213,10 +213,10 @@ export const SimulationListPage = () => {
                         {(sim.status === 'RUNNING' || sim.status === 'PAUSED') && (
                           <button
                             onClick={() => cancelSim(sim.runId)}
-                            title="Cancel Simulation"
+                            title="Stop / Halt Simulation Run"
                             className="p-1.5 rounded hover:bg-red-100 text-red-700 cursor-pointer"
                           >
-                            <XCircle className="w-4 h-4" />
+                            <StopCircle className="w-4 h-4" />
                           </button>
                         )}
                         <button
