@@ -66,8 +66,8 @@ export const MonitoringPage = () => {
   const [selectedPersonaId, setSelectedPersonaId] = useState('P001');
   const [selectedCategory, setSelectedCategory] = useState('FLIGHT_DISRUPTION');
   const [priority, setPriority] = useState('ALL');
-  const [minWaitSec, setMinWaitSec] = useState(120); // Realistic 2 - 2:30 min AHT pacing
-  const [maxWaitSec, setMaxWaitSec] = useState(150);
+  const [minWaitSec, setMinWaitSec] = useState(3); // Fast mode by default, preset available for 2-2:30m
+  const [maxWaitSec, setMaxWaitSec] = useState(6);
   const [escalationMode, setEscalationMode] = useState('Auto'); // 'Auto' | 'Yes' | 'No'
   const [idleStopMins, setIdleStopMins] = useState(4); // 4-minute AHT silence threshold
   const [pilotMode, setPilotMode] = useState('MANUAL'); // 'MANUAL' | 'AUTO-PILOT'
@@ -676,10 +676,10 @@ export const MonitoringPage = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setMinWaitSec(5); setMaxWaitSec(10); }}
+                    onClick={() => { setMinWaitSec(3); setMaxWaitSec(6); }}
                     className="px-1.5 py-0.5 rounded bg-[var(--surface-ticket-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
                   >
-                    5s–10s (Fast)
+                    3s–6s (Fast)
                   </button>
                 </div>
               </div>
