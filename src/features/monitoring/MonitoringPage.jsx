@@ -84,6 +84,11 @@ export const MonitoringPage = () => {
   const autoPilotTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const autoPilotRunningRef = useRef(false);
+  const deployCountRef = useRef(deployCount);
+
+  useEffect(() => {
+    deployCountRef.current = deployCount;
+  }, [deployCount]);
 
   // ── State for Simulator Sessions & Conversation Monitor ──
   const [selectedConversationId, setSelectedConversationId] = useState(null);
@@ -276,12 +281,15 @@ export const MonitoringPage = () => {
     setAutoPilotRunId(newRunId);
     setIsAutoPilotRunning(true);
     autoPilotRunningRef.current = true;
-    setAutoPilotCount(1);
+    const initialCount = deployCountRef.current || deployCount || 1;
+    setAutoPilotCount(initialCount);
     setCountdown(autoPilotIntervalSec);
 
     try {
-      // 1. Dispatch first query immediately
-      await dispatchSingleQuery(newRunId);
+      // 1. Dispatch first batch of queries immediately
+      for (let i = 0; i < initialCount; i++) {
+        await dispatchSingleQuery(newRunId);
+      }
       refetchConversations();
     } catch (err) {
       console.error('Auto-Pilot initial dispatch failed:', err);
@@ -310,8 +318,11 @@ export const MonitoringPage = () => {
     autoPilotTimerRef.current = setInterval(async () => {
       if (!autoPilotRunningRef.current) return;
       try {
-        await dispatchSingleQuery(newRunId);
-        setAutoPilotCount((c) => c + 1);
+        const batchCount = deployCountRef.current || deployCount || 1;
+        for (let i = 0; i < batchCount; i++) {
+          await dispatchSingleQuery(newRunId);
+        }
+        setAutoPilotCount((c) => c + batchCount);
         refetchConversations();
       } catch (err) {
         console.error('Auto-Pilot recurring dispatch error:', err);
@@ -522,7 +533,7 @@ export const MonitoringPage = () => {
                 </span>
               </div>
               <p className="text-[11px] text-slate-300 mono-font mt-0.5">
-                Dispatched: <strong className="text-white">{autoPilotCount} query/queries</strong> • Next query in: <strong className="text-amber-300 font-bold">{countdown}s</strong> (Interval: {autoPilotIntervalSec}s) • Pacing: {minWaitSec}-{maxWaitSec}s
+                Dispatched: <strong className="text-white">{autoPilotCount} query/queries</strong> • Next batch ({deployCount} queries) in: <strong className="text-amber-300 font-bold">{countdown}s</strong> (Interval: {autoPilotIntervalSec}s) • Pacing: {minWaitSec}-{maxWaitSec}s
               </p>
             </div>
           </div>
@@ -551,7 +562,7 @@ export const MonitoringPage = () => {
               Launch Configuration
             </span>
             <span className="text-[10px] text-[var(--text-muted)] mono-font">
-              ({pilotMode} mode • {pilotMode === 'AUTO-PILOT' ? `Interval ${autoPilotIntervalSec}s` : `${deployCount} session(s)`} • AHT 2-2:30m)
+              ({pilotMode} mode • {pilotMode === 'AUTO-PILOT' ? `${deployCount} queries every ${autoPilotIntervalSec}s` : `${deployCount} session(s)`} • AHT 2-2:30m)
             </span>
           </div>
           {configOpen ? <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />}
@@ -731,9 +742,9 @@ export const MonitoringPage = () => {
                 </div>
 
                 {/* If Auto-Pilot: Show Timer Interval Selector */}
-                {pilotMode === 'AUTO-PILOT' ? (
+                {pilotMode === 'AUTO-PILOT' && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-[var(--text-muted)] uppercase">Timer Interval (Sec):</span>
+                    <span className="text-[10px] text-[var(--text-muted)] uppercase">Interval (Sec):</span>
                     <input
                       type="number"
                       min="5"
@@ -759,27 +770,32 @@ export const MonitoringPage = () => {
                       ))}
                     </div>
                   </div>
-                ) : (
-                  /* Count Stepper for Manual */
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-[var(--text-muted)] uppercase">Count:</span>
-                    <div className="flex items-center bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
-                      <button
-                        onClick={() => setDeployCount((c) => Math.max(1, c - 1))}
-                        className="px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-                      >
-                        -
-                      </button>
-                      <span className="px-2 font-bold text-xs text-[var(--text-main)]">{deployCount}</span>
-                      <button
-                        onClick={() => setDeployCount((c) => Math.min(10, c + 1))}
-                        className="px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
                 )}
+
+                {/* Query Count Stepper (Available in BOTH Manual & Auto-Pilot modes) */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-[var(--text-muted)] uppercase">
+                    {pilotMode === 'AUTO-PILOT' ? 'Queries / Interval:' : 'Count:'}
+                  </span>
+                  <div className="flex items-center bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg">
+                    <button
+                      onClick={() => setDeployCount((c) => Math.max(1, c - 1))}
+                      className="px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="px-2 font-bold text-xs text-[var(--text-main)]">{deployCount}</span>
+                    <button
+                      onClick={() => setDeployCount((c) => Math.min(10, c + 1))}
+                      className="px-2 py-0.5 text-[var(--text-muted)] hover:text-[var(--text-main)] cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                  {pilotMode === 'AUTO-PILOT' && (
+                    <span className="text-[9px] text-[var(--text-dim)]">({deployCount} / {autoPilotIntervalSec}s)</span>
+                  )}
+                </div>
               </div>
 
               {/* Deploy / Auto-Pilot CTA */}
@@ -806,13 +822,13 @@ export const MonitoringPage = () => {
                   ) : (
                     <>
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      Start Auto-Pilot ({autoPilotIntervalSec}s interval)
+                      Start Auto-Pilot ({deployCount} queries / {autoPilotIntervalSec}s)
                     </>
                   )
                 ) : (
                   <>
                     <Play className="w-3.5 h-3.5 fill-current" />
-                    Deploy Simulator
+                    Deploy Simulator ({deployCount})
                   </>
                 )}
               </button>
