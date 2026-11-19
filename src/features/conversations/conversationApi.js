@@ -34,6 +34,10 @@ export const conversationApi = baseApi.injectEndpoints({
       query: (conversationId) => `/conversations/${conversationId}/replay`,
       providesTags: (result, error, id) => [{ type: 'Conversation', id: `${id}-REPLAY` }],
     }),
+    getConversationQcReport: builder.query({
+      query: (conversationId) => `/conversations/${conversationId}/qc`,
+      providesTags: (result, error, id) => [{ type: 'Conversation', id: `${id}-QC` }],
+    }),
     stopConversation: builder.mutation({
       query: (conversationId) => ({
         url: `/conversations/${conversationId}/stop`,
@@ -82,6 +86,7 @@ export const {
   useGetConversationMessagesQuery,
   useGetConversationEventsQuery,
   useGetConversationReplayQuery,
+  useGetConversationQcReportQuery,
   useStopConversationMutation,
   useStopAllConversationsMutation,
   useDeleteConversationMutation,

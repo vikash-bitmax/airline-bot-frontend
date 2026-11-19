@@ -24,7 +24,9 @@ import {
   Plane,
   Trash2,
   Eye,
+  FileCheck,
 } from 'lucide-react';
+import QcReportCard from '../../components/conversation/QcReportCard.jsx';
 
 import {
   useGetConversationsQuery,
@@ -132,6 +134,8 @@ export const MonitoringPage = () => {
   });
 
   const activeConversation = selectedConvData?.data?.conversation || conversations.find((c) => c.conversationId === selectedConversationId);
+  const activeQcReport = selectedConvData?.data?.qcReport || activeConversation?.outcome?.qcReport;
+  const [showQcModal, setShowQcModal] = useState(false);
   const initialMessages = selectedConvData?.data?.messages || [];
   const [liveMessages, setLiveMessages] = useState([]);
   const [isAgentTyping, setIsAgentTyping] = useState(false);
@@ -854,6 +858,17 @@ export const MonitoringPage = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              {activeQcReport && (
+                <button
+                  type="button"
+                  onClick={() => setShowQcModal(true)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 mono-font hover:brightness-95 transition-all cursor-pointer"
+                  title="View Automated QC Audit Report"
+                >
+                  <FileCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  QC: {activeQcReport.overallScore}% ({activeQcReport.status})
+                </button>
+              )}
               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 mono-font">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Real-Time
@@ -1163,6 +1178,15 @@ export const MonitoringPage = () => {
                       <span className="px-1.5 py-0.5 rounded bg-[var(--surface-ticket-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)]">
                         💬 {turns}
                       </span>
+                      {conv.outcome?.qcReport && (
+                        <span className={`px-1.5 py-0.5 rounded font-extrabold border ${
+                          conv.outcome.qcReport.status === 'PASS'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                            : 'bg-red-50 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300'
+                        }`}>
+                          QC {conv.outcome.qcReport.overallScore}%
+                        </span>
+                      )}
                       {(conv.status === 'ABANDONED' || conv.endReason?.includes('AHT_TIMEOUT')) && (
                         <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-800 font-bold">
                           ⏱️ AHT 4m Timeout
@@ -1275,6 +1299,44 @@ export const MonitoringPage = () => {
         onConfirm={handleDeleteConfirm}
         onCancel={() => setConversationToDelete(null)}
       />
+
+      {/* ── QC REPORT MODAL ── */}
+      {showQcModal && activeQcReport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--surface-ticket)] border border-[var(--border-subtle)] shadow-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
+              <div>
+                <h3 className="text-sm font-extrabold uppercase text-[var(--text-main)] mono-font flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 text-[var(--accent-primary)]" />
+                  Quality Control Audit Report
+                </h3>
+                <span className="text-[11px] text-[var(--text-muted)] mono-font">
+                  Conversation: {activeConversation?.conversationId} | Passenger: {activeConversation?.customerFixture?.facts?.passengerName || activeConversation?.persona?.name}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQcModal(false)}
+                className="p-1 text-sm font-bold rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-input)] transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <QcReportCard report={activeQcReport} />
+
+            <div className="flex justify-end pt-2 border-t border-[var(--border-subtle)]">
+              <button
+                type="button"
+                onClick={() => setShowQcModal(false)}
+                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-[var(--accent-primary)] text-white hover:brightness-110 cursor-pointer"
+              >
+                Close Report
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

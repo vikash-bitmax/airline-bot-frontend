@@ -5,12 +5,14 @@ import { ArrowLeft, Play, Pause, SkipForward, SkipBack, RefreshCw, Radio, Sparkl
 import ChatWindow from '../../components/conversation/ChatWindow.jsx';
 import CustomerProfilePanel from '../../components/conversation/CustomerProfilePanel.jsx';
 import EventTimeline from '../../components/conversation/EventTimeline.jsx';
+import QcReportCard from '../../components/conversation/QcReportCard.jsx';
 import LoadingState from '../../components/common/LoadingState.jsx';
 import ErrorState from '../../components/common/ErrorState.jsx';
 import ConfirmDialog from '../../components/common/ConfirmDialog.jsx';
 
 import {
   useGetConversationDetailsQuery,
+  useGetConversationQcReportQuery,
   useStopConversationMutation,
   useDeleteConversationMutation,
 } from './conversationApi.js';
@@ -21,11 +23,13 @@ export const ConversationDetailsPage = () => {
   const navigate = useNavigate();
 
   const { data, isLoading, error, refetch } = useGetConversationDetailsQuery(conversationId);
+  const { data: qcData } = useGetConversationQcReportQuery(conversationId);
   const [stopConv, { isLoading: isStopping }] = useStopConversationMutation();
   const [deleteConv, { isLoading: isDeleting }] = useDeleteConversationMutation();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const conversation = data?.data?.conversation;
+  const qcReport = qcData?.data || data?.data?.qcReport || conversation?.outcome?.qcReport;
   const initialMessages = data?.data?.messages || [];
   const initialEvents = data?.data?.events || [];
 
@@ -195,6 +199,9 @@ export const ConversationDetailsPage = () => {
 
         {/* Right Panel: Workflow State Machine & Timeline (3 cols) */}
         <div className="lg:col-span-3 overflow-y-auto space-y-4 pr-1">
+          {/* Automated QC Scorecard (Agent L1 / QA L2) */}
+          {qcReport && <QcReportCard report={qcReport} />}
+
           <EventTimeline
             events={liveEvents}
             currentState={currentState}
