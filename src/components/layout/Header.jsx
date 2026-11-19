@@ -37,13 +37,15 @@ export const Header = () => {
   }, []);
 
   const getPageTitle = (pathname) => {
-    if (pathname === '/') return 'Mission Control & Metrics';
-    if (pathname.startsWith('/personas')) return 'Persona Registry & Archetypes';
-    if (pathname.startsWith('/scenarios')) return 'Airline Operational Scenarios';
+    if (pathname === '/' || pathname === '/monitoring') return 'Mission Control & Monitoring';
+    if (pathname.startsWith('/library')) return 'Persona & Scenario Library';
+    if (pathname.startsWith('/personas/create')) return 'Create AI Passenger Persona';
+    if (pathname.startsWith('/personas')) return 'AI Passenger Persona Details';
+    if (pathname.startsWith('/scenarios/create')) return 'Create Disruption Scenario';
+    if (pathname.startsWith('/scenarios')) return 'Disruption Scenario Details';
     if (pathname.startsWith('/simulations/create')) return 'Launch Simulation Wizard';
     if (pathname.startsWith('/simulations')) return 'Active Simulations Manifest';
     if (pathname.startsWith('/conversations')) return 'Live Simulated Customer Stream';
-    if (pathname.startsWith('/reports')) return 'Audit Reports & Quality Evaluation';
     if (pathname.startsWith('/settings')) return 'Simulator Engine Settings';
     return 'Simulator Dashboard';
   };

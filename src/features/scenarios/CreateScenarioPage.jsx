@@ -52,7 +52,7 @@ export const CreateScenarioPage = () => {
         requiredFacts: ['pnr', 'flightNumber', 'passengerName'],
       }).unwrap();
 
-      navigate('/scenarios');
+      navigate('/library?tab=scenarios');
     } catch (err) {
       setErrorMsg(err?.data?.message || err.message || 'Failed to persist scenario');
     }
@@ -62,10 +62,10 @@ export const CreateScenarioPage = () => {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-2">
         <button
-          onClick={() => navigate('/scenarios')}
+          onClick={() => navigate('/library?tab=scenarios')}
           className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--surface-ticket)] border border-[var(--border-subtle)] mono-font text-xs flex items-center gap-1 cursor-pointer"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Scenarios
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Library
         </button>
       </div>
 
@@ -214,7 +214,7 @@ export const CreateScenarioPage = () => {
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
-            onClick={() => navigate('/scenarios')}
+            onClick={() => navigate('/library?tab=scenarios')}
             className="px-4 py-2 text-xs font-semibold rounded-lg bg-[var(--surface-ticket)] text-[var(--text-muted)] border border-[var(--border-subtle)] mono-font cursor-pointer"
           >
             Cancel

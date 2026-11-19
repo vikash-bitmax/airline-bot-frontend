@@ -8,11 +8,10 @@ import LoginPage from '../features/auth/LoginPage.jsx';
 import MonitoringPage from '../features/monitoring/MonitoringPage.jsx';
 import DashboardPage from '../features/dashboard/DashboardPage.jsx';
 
-import PersonaListPage from '../features/personas/PersonaListPage.jsx';
+import LibraryPage from '../features/library/LibraryPage.jsx';
 import PersonaDetailsPage from '../features/personas/PersonaDetailsPage.jsx';
 import CreatePersonaPage from '../features/personas/CreatePersonaPage.jsx';
 
-import ScenarioListPage from '../features/scenarios/ScenarioListPage.jsx';
 import ScenarioDetailsPage from '../features/scenarios/ScenarioDetailsPage.jsx';
 import CreateScenarioPage from '../features/scenarios/CreateScenarioPage.jsx';
 
@@ -23,7 +22,6 @@ import SimulationDetailsPage from '../features/simulations/SimulationDetailsPage
 import LiveConversationsPage from '../features/conversations/LiveConversationsPage.jsx';
 import ConversationDetailsPage from '../features/conversations/ConversationDetailsPage.jsx';
 
-import ReportsPage from '../features/reports/ReportsPage.jsx';
 import SettingsPage from '../features/settings/SettingsPage.jsx';
 
 export const router = createBrowserRouter([
@@ -50,8 +48,12 @@ export const router = createBrowserRouter([
             element: <DashboardPage />,
           },
           {
+            path: '/library',
+            element: <LibraryPage />,
+          },
+          {
             path: '/personas',
-            element: <PersonaListPage />,
+            element: <LibraryPage initialTab="personas" />,
           },
           {
             path: '/personas/create',
@@ -63,7 +65,7 @@ export const router = createBrowserRouter([
           },
           {
             path: '/scenarios',
-            element: <ScenarioListPage />,
+            element: <LibraryPage initialTab="scenarios" />,
           },
           {
             path: '/scenarios/create',
@@ -92,10 +94,6 @@ export const router = createBrowserRouter([
           {
             path: '/conversations/:conversationId',
             element: <ConversationDetailsPage />,
-          },
-          {
-            path: '/reports',
-            element: <ReportsPage />,
           },
           {
             path: '/settings',

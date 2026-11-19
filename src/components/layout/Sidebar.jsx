@@ -3,10 +3,8 @@ import { NavLink } from 'react-router-dom';
 import {
   Radio,
   Users,
-  Compass,
   PlayCircle,
   MessagesSquare,
-  BarChart3,
   Settings,
   Plane,
   Send,
@@ -16,9 +14,7 @@ const NAV_ITEMS = [
   { path: '/', label: 'Monitoring', icon: Radio },
   { path: '/simulations', label: 'Simulations', icon: PlayCircle },
   { path: '/conversations', label: 'Live Conversations', icon: MessagesSquare },
-  { path: '/personas', label: 'Persona Library', icon: Users },
-  { path: '/scenarios', label: 'Scenario Library', icon: Compass },
-  { path: '/reports', label: 'Reports & Analytics', icon: BarChart3 },
+  { path: '/library', label: 'Persona & Scenario Lib', icon: Users },
   { path: '/settings', label: 'Simulator Settings', icon: Settings },
 ];
 
@@ -69,8 +65,15 @@ export const Sidebar = ({ onOpenQueryModal }) => {
                 to={item.path}
                 end={item.path === '/'}
                 className={({ isActive }) => {
+                  const pathname = window.location.pathname;
                   const isCurrentActive =
-                    isActive || (item.path === '/' && (window.location.pathname === '/' || window.location.pathname === '/monitoring'));
+                    isActive ||
+                    (item.path === '/' && (pathname === '/' || pathname === '/monitoring')) ||
+                    (item.path === '/library' && (
+                      pathname.startsWith('/library') ||
+                      pathname.startsWith('/personas') ||
+                      pathname.startsWith('/scenarios')
+                    ));
                   return `flex items-center gap-3 px-3 py-2.5 text-xs font-semibold rounded-lg transition-colors mono-font ${
                     isCurrentActive
                       ? 'bg-[var(--surface-input-active)] text-[var(--accent-primary)] border-l-4 border-[var(--accent-primary)] shadow-2xs'
