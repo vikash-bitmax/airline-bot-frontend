@@ -27,13 +27,14 @@ export const OnDemandQueryModal = ({ isOpen, onClose }) => {
 
   const [personaId, setPersonaId] = useState('P001');
   const [scenarioId, setScenarioId] = useState('S001');
-  const [customerName, setCustomerName] = useState('Vikash Sharma');
-  const [passengerEmail, setPassengerEmail] = useState('vikash.passenger@example.test');
-  const [pnr, setPnr] = useState('SW9941');
-  const [flightNumber, setFlightNumber] = useState('SW-101');
+  const [useDbCustomer, setUseDbCustomer] = useState(true);
+  const [customerName, setCustomerName] = useState('');
+  const [passengerEmail, setPassengerEmail] = useState('');
+  const [pnr, setPnr] = useState('');
+  const [flightNumber, setFlightNumber] = useState('');
   const [category, setCategory] = useState('FLIGHT_DISRUPTION');
   const [initialMessage, setInitialMessage] = useState(
-    'My flight SW-101 has been delayed by 4 hours. Will I miss my connection, and can I get meal vouchers or rebooking?'
+    'My flight has been delayed. Will I miss my connection, and can I get meal vouchers or rebooking?'
   );
   const [useMockCrm, setUseMockCrm] = useState(false);
 
@@ -48,18 +49,23 @@ export const OnDemandQueryModal = ({ isOpen, onClose }) => {
     setResult(null);
 
     try {
-      const res = await raiseQuery({
+      const payload = {
         personaId,
         scenarioId,
-        customerName: customerName.trim(),
-        passengerEmail: passengerEmail.trim(),
-        pnr: pnr.trim().toUpperCase(),
-        flightNumber: flightNumber.trim().toUpperCase(),
         category,
-        initialMessage: initialMessage.trim(),
         useMockCrm,
-      }).unwrap();
+        ...(useDbCustomer
+          ? {}
+          : {
+              customerName: customerName.trim() || undefined,
+              passengerEmail: passengerEmail.trim() || undefined,
+              pnr: pnr.trim().toUpperCase() || undefined,
+              flightNumber: flightNumber.trim().toUpperCase() || undefined,
+            }),
+        ...(initialMessage.trim() ? { initialMessage: initialMessage.trim() } : {}),
+      };
 
+      const res = await raiseQuery(payload).unwrap();
       setResult(res?.data);
     } catch (err) {
       setErrorMsg(err?.data?.message || err.message || 'Failed to raise support query to CRM');
@@ -197,79 +203,103 @@ export const OnDemandQueryModal = ({ isOpen, onClose }) => {
                 </div>
               </div>
 
-              {/* Passenger Credentials */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
-                    Passenger Full Name
+              {/* Database Customer Sampling Mode */}
+              <div className="p-3.5 rounded-lg bg-[var(--surface-ticket-elevated)] border border-[var(--border-subtle)] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-[var(--text-main)] mono-font flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      Auto-Sample Real Customer from Database
+                    </span>
+                    <p className="text-[11px] text-[var(--text-muted)]">
+                      Picks a genuine passenger identity & booking from your 1,000 seeded MongoDB customers
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useDbCustomer}
+                      onChange={(e) => setUseDbCustomer(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--accent-primary)]" />
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font"
-                  />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
-                    Passenger Email
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={passengerEmail}
-                    onChange={(e) => setPassengerEmail(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font"
-                  />
-                </div>
+                {!useDbCustomer && (
+                  <div className="pt-2 space-y-3 border-t border-[var(--border-subtle)] animate-in fade-in duration-150">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
+                          Custom Passenger Name
+                        </label>
+                        <input
+                          type="text"
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="e.g. Kabir Jain"
+                          className="w-full px-2.5 py-1.5 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
+                          Custom Email
+                        </label>
+                        <input
+                          type="email"
+                          value={passengerEmail}
+                          onChange={(e) => setPassengerEmail(e.target.value)}
+                          placeholder="e.g. kabir.jain@example.com"
+                          className="w-full px-2.5 py-1.5 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
+                          Custom PNR
+                        </label>
+                        <input
+                          type="text"
+                          value={pnr}
+                          onChange={(e) => setPnr(e.target.value)}
+                          placeholder="e.g. SW565178"
+                          className="w-full px-2.5 py-1.5 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
+                          Custom Flight Number
+                        </label>
+                        <input
+                          type="text"
+                          value={flightNumber}
+                          onChange={(e) => setFlightNumber(e.target.value)}
+                          placeholder="e.g. SW471"
+                          className="w-full px-2.5 py-1.5 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font uppercase"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* PNR, Flight Number, Category */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
-                    Booking PNR
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={pnr}
-                    onChange={(e) => setPnr(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font uppercase"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
-                    Flight Number
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={flightNumber}
-                    onChange={(e) => setFlightNumber(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font uppercase"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
-                    CRM Category
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font"
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Category */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mono-font mb-1">
+                  CRM Category
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-[var(--surface-input)] border border-[var(--border-subtle)] rounded-lg text-[var(--text-main)] mono-font"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Initial Query */}
