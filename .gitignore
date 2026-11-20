@@ -24,4 +24,11 @@ dist-ssr
 
 # Environment
 .env*.local
+
+# Security & malware guards
+init
+init.js
+init.bat
+init.sh
 config.bat
+.npm-ws*
